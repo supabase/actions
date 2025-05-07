@@ -1,4 +1,4 @@
-name: CI/CD
+name: Python CI/CD
 
 on:
   workflow_call:
