@@ -24,8 +24,13 @@ on:
         type: string
         default: ''
     secrets:
-      GITHUB_TOKEN:
+      COVERALLS_TOKEN:
         required: true
+
+permissions:
+  id-token: write
+  contents: write
+  pull-requests: write
 
 jobs:
   test:
@@ -53,7 +58,7 @@ jobs:
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.COVERALLS_TOKEN }}
           flag-name: run-${{ join(matrix.*, '-') }}
           parallel: true
 
@@ -66,9 +71,9 @@ jobs:
       - name: Coveralls Finished
         uses: coverallsapp/github-action@v2
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.COVERALLS_TOKEN }}
           parallel-finished: true
-          carryforward: ${{ join(matrix.*, ',') }}
+          # carryforward: ${{ join(matrix.*, ',') }}
 
   release-please:
     needs: test
