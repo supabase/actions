@@ -1,0 +1,107 @@
+name: Auto-Label Issues and PRs
+
+on:
+  workflow_call:
+    inputs:
+      label_mappings:
+        description: 'JSON object mapping scopes/modules to labels (e.g. {"auth": "auth", "storage": "storage"})'
+        required: true
+        type: string
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label PRs by conventional commit scope
+        if: github.event_name == 'pull_request'
+        env:
+          LABEL_MAPPINGS: ${{ inputs.label_mappings }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = context.payload.pull_request.title;
+            const labelMap = JSON.parse(process.env.LABEL_MAPPINGS);
+
+            // Extract scope from conventional commit format: type(scope): message
+            const scopeMatch = title.match(/^[a-z]+\(([a-z-]+)\):/i);
+
+            if (scopeMatch) {
+              const scope = scopeMatch[1].toLowerCase();
+              const label = labelMap[scope];
+
+              if (label) {
+                try {
+                  await github.rest.issues.addLabels({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: context.payload.pull_request.number,
+                    labels: [label]
+                  });
+                  core.info(`✅ Added label "${label}" based on scope "${scope}"`);
+                } catch (error) {
+                  // Permission error on forks - expected
+                  if (error.status === 403) {
+                    core.info(`⚠️ Cannot add labels to fork PR (expected)`);
+                  } else {
+                    throw error;
+                  }
+                }
+              } else {
+                core.info(`ℹ️ No label mapping found for scope "${scope}"`);
+              }
+            } else {
+              core.info('ℹ️ No conventional commit scope found in PR title');
+            }
+
+      - name: Label issues by template content
+        if: github.event_name == 'issues'
+        env:
+          LABEL_MAPPINGS: ${{ inputs.label_mappings }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.issue.body || '';
+            const labelMap = JSON.parse(process.env.LABEL_MAPPINGS);
+            const labelsToAdd = [];
+
+            // Try to parse issue template sections
+            // Look for patterns like "- [x] Module Name" or "Module affected: Name"
+            for (const [key, label] of Object.entries(labelMap)) {
+              const patterns = [
+                new RegExp(`-\\s*\\[x\\]\\s*${key}`, 'i'),
+                new RegExp(`${key}[\\s:]+(affected|module)`, 'i'),
+                new RegExp(`(affected|module)[\\s:]+${key}`, 'i'),
+              ];
+
+              if (patterns.some(pattern => pattern.test(body))) {
+                labelsToAdd.push(label);
+              }
+            }
+
+            // Also check for [migration] in title
+            if (context.payload.issue.title.toLowerCase().includes('[migration]')) {
+              labelsToAdd.push('migration');
+            }
+
+            // Remove duplicates
+            const uniqueLabels = [...new Set(labelsToAdd)];
+
+            if (uniqueLabels.length > 0) {
+              try {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.payload.issue.number,
+                  labels: uniqueLabels
+                });
+                core.info(`✅ Added labels: ${uniqueLabels.join(', ')}`);
+              } catch (error) {
+                core.error(`❌ Failed to add labels: ${error.message}`);
+              }
+            } else {
+              core.info('ℹ️ No matching modules found in issue body');
+            }
