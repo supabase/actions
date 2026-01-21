@@ -1,0 +1,88 @@
+name: Manage Stale Issues and PRs
+
+on:
+  workflow_call:
+    inputs:
+      days_before_issue_stale:
+        description: 'Days before an issue is marked as stale'
+        required: false
+        type: number
+        default: 180
+      days_before_issue_close:
+        description: 'Days before a stale issue is closed'
+        required: false
+        type: number
+        default: 30
+      days_before_pr_stale:
+        description: 'Days before a PR is marked as stale'
+        required: false
+        type: number
+        default: 90
+      days_before_pr_close:
+        description: 'Days before a stale PR is closed'
+        required: false
+        type: number
+        default: 14
+      exempt_issue_labels:
+        description: 'Comma-separated list of labels that exempt issues from being marked as stale'
+        required: false
+        type: string
+        default: 'priority,security,planned'
+      exempt_pr_labels:
+        description: 'Comma-separated list of labels that exempt PRs from being marked as stale'
+        required: false
+        type: string
+        default: 'priority,security'
+      operations_per_run:
+        description: 'Maximum number of operations per run'
+        required: false
+        type: number
+        default: 100
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Issue configuration
+          days-before-stale: ${{ inputs.days_before_issue_stale }}
+          days-before-close: ${{ inputs.days_before_issue_close }}
+          stale-issue-message: |
+            This issue has been inactive for ${{ inputs.days_before_issue_stale }} days.
+            It will be automatically closed in ${{ inputs.days_before_issue_close }} days if there is no further activity.
+
+            If you believe this issue is still relevant, please leave a comment to keep it open.
+            Thank you for your contributions!
+          close-issue-message: |
+            This issue was automatically closed due to inactivity.
+
+            If you believe this is still relevant, feel free to reopen it or create a new issue with updated information.
+
+          # PR configuration
+          days-before-pr-stale: ${{ inputs.days_before_pr_stale }}
+          days-before-pr-close: ${{ inputs.days_before_pr_close }}
+          stale-pr-message: |
+            This pull request has been inactive for ${{ inputs.days_before_pr_stale }} days.
+            It will be automatically closed in ${{ inputs.days_before_pr_close }} days if there is no further activity.
+
+            If you plan to continue working on this PR, please leave a comment to keep it open.
+          close-pr-message: |
+            This pull request was automatically closed due to inactivity.
+
+            If you'd like to continue this work, please reopen the PR or create a new one.
+
+          # Exemptions
+          exempt-issue-labels: ${{ inputs.exempt_issue_labels }}
+          exempt-pr-labels: ${{ inputs.exempt_pr_labels }}
+          exempt-all-assignees: true
+
+          # Performance
+          operations-per-run: ${{ inputs.operations_per_run }}
+          remove-stale-when-updated: true

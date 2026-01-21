@@ -1,0 +1,137 @@
+name: Slack Notification
+
+on:
+  workflow_call:
+    inputs:
+      title:
+        description: 'Notification title'
+        required: true
+        type: string
+      status:
+        description: 'Status: success, failure, or info'
+        required: true
+        type: string
+      version:
+        description: 'Optional version string'
+        required: false
+        type: string
+        default: ''
+      mention_group:
+        description: 'Slack group to mention (e.g. "@group-sdk")'
+        required: false
+        type: string
+        default: ''
+    secrets:
+      SLACK_WEBHOOK_URL:
+        description: 'Slack webhook URL'
+        required: true
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Slack notification
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          # Determine emoji and color based on status
+          case "${{ inputs.status }}" in
+            success)
+              EMOJI="✅"
+              COLOR="#36a64f"
+              ;;
+            failure)
+              EMOJI="❌"
+              COLOR="#ff0000"
+              ;;
+            info)
+              EMOJI="ℹ️"
+              COLOR="#0099ff"
+              ;;
+            *)
+              EMOJI="⚪"
+              COLOR="#808080"
+              ;;
+          esac
+
+          # Build version field if provided
+          VERSION_FIELD=""
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION_FIELD=",{\"type\": \"mrkdwn\",\"text\": \"*Version:*\n${{ inputs.version }}\"}"
+          fi
+
+          # Build mention text
+          MENTION_TEXT=""
+          if [ -n "${{ inputs.mention_group }}" ]; then
+            MENTION_TEXT="${{ inputs.mention_group }}\n"
+          fi
+
+          # Construct payload
+          cat << EOF > /tmp/slack-payload.json
+          {
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "${EMOJI} ${{ inputs.title }}",
+                  "emoji": true
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "${MENTION_TEXT}"
+                }
+              },
+              {
+                "type": "section",
+                "fields": [
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Repository:*\n${{ github.repository }}"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Workflow:*\n${{ github.workflow }}"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Ref:*\n${{ github.ref_name }}"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Actor:*\n${{ github.actor }}"
+                  }${VERSION_FIELD}
+                ]
+              },
+              {
+                "type": "actions",
+                "elements": [
+                  {
+                    "type": "button",
+                    "text": {
+                      "type": "plain_text",
+                      "text": "View Workflow"
+                    },
+                    "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  },
+                  {
+                    "type": "button",
+                    "text": {
+                      "type": "plain_text",
+                      "text": "View Commit"
+                    },
+                    "url": "${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+
+          # Send to Slack
+          curl -X POST -H 'Content-type: application/json' \
+            --data @/tmp/slack-payload.json \
+            "$SLACK_WEBHOOK_URL"
