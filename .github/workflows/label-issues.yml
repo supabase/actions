@@ -18,11 +18,13 @@ jobs:
     steps:
       - name: Label PRs by conventional commit scope
         if: github.event_name == 'pull_request'
+        env:
+          LABEL_MAPPINGS: ${{ inputs.label_mappings }}
         uses: actions/github-script@v7
         with:
           script: |
             const title = context.payload.pull_request.title;
-            const labelMap = JSON.parse('${{ inputs.label_mappings }}');
+            const labelMap = JSON.parse(process.env.LABEL_MAPPINGS);
 
             // Extract scope from conventional commit format: type(scope): message
             const scopeMatch = title.match(/^[a-z]+\(([a-z-]+)\):/i);
@@ -57,11 +59,13 @@ jobs:
 
       - name: Label issues by template content
         if: github.event_name == 'issues'
+        env:
+          LABEL_MAPPINGS: ${{ inputs.label_mappings }}
         uses: actions/github-script@v7
         with:
           script: |
             const body = context.payload.issue.body || '';
-            const labelMap = JSON.parse('${{ inputs.label_mappings }}');
+            const labelMap = JSON.parse(process.env.LABEL_MAPPINGS);
             const labelsToAdd = [];
 
             // Try to parse issue template sections
