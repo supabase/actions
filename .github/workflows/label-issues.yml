@@ -20,7 +20,7 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           LABEL_MAPPINGS: ${{ inputs.label_mappings }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const title = context.payload.pull_request.title;
@@ -61,7 +61,7 @@ jobs:
         if: github.event_name == 'issues'
         env:
           LABEL_MAPPINGS: ${{ inputs.label_mappings }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const body = context.payload.issue.body || '';
