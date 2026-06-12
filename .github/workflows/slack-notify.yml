@@ -26,6 +26,8 @@ on:
         description: 'Slack webhook URL'
         required: true
 
+permissions: {}
+
 jobs:
   notify:
     runs-on: ubuntu-latest
