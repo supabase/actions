@@ -22,18 +22,11 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const isDraft = context.payload.pull_request.draft;
             const title = context.payload.pull_request.title;
             const labels = context.payload.pull_request.labels.map(l => l.name);
 
             const blockLabels = '${{ inputs.block_labels }}'.split(',').map(s => s.trim());
             const blockKeywords = '${{ inputs.block_keywords }}'.split(',').map(s => s.trim());
-
-            // Check if draft
-            if (isDraft) {
-              core.setFailed('❌ This PR is blocked from merging: Draft PR');
-              return;
-            }
 
             // Check labels
             for (const label of blockLabels) {
